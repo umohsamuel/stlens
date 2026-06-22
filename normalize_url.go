@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	"regexp"
 	"strings"
@@ -65,7 +66,6 @@ func getFirstParagraphFromHTML(html string) string {
 }
 
 func getURLsFromHTML(htmlBody string, baseURL *url.URL) ([]string, error) {
-	urls := make([]string, 0)
 
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlBody))
 	if err != nil {
@@ -74,13 +74,22 @@ func getURLsFromHTML(htmlBody string, baseURL *url.URL) ([]string, error) {
 	}
 
 	body := doc.Find("body")
+	urls := make([]string, 0)
 
 	body.Find("a[href]").Each(func(_ int, link *goquery.Selection) {
 		href, exists := link.Attr("href")
-		if exists {
-			urls = append(urls, href)
-
+		if !exists {
+			return
 		}
+
+		hrefURL, err := url.Parse(href)
+		if err != nil {
+			return
+		}
+
+		fullURL := baseURL.ResolveReference(hrefURL)
+
+		urls = append(urls, fullURL.String())
 
 	})
 
@@ -100,12 +109,60 @@ func getImagesFromHTML(htmlBody string, baseURL *url.URL) ([]string, error) {
 
 	body.Find("img[src]").Each(func(_ int, img *goquery.Selection) {
 		src, exists := img.Attr("src")
-		if exists {
-			fullImgLink := baseURL.Scheme + `://` + baseURL.Host + src
-			urls = append(urls, fullImgLink)
+		if !exists {
+			return
 		}
+
+		srcURL, err := url.Parse(src)
+		if err != nil {
+			return
+		}
+
+		fullURL := baseURL.ResolveReference(srcURL)
+		urls = append(urls, fullURL.String())
 	})
 
 	return urls, nil
+
+}
+
+type PageData struct {
+	URL            string
+	Heading        string
+	FirstParagraph string
+	OutgoingLinks  []string
+	ImageURLs      []string
+}
+
+func extractPageData(html, pageURL string) PageData {
+	heading := getHeadingFromHTML(html)
+
+	firstParagraph := getFirstParagraphFromHTML(html)
+
+	baseParsedURL, err := url.Parse(pageURL)
+	log.Println(baseParsedURL)
+	if err != nil {
+		fmt.Printf("error occurred %v", err)
+		return PageData{}
+	}
+	outGoingLinks, err := getURLsFromHTML(html, baseParsedURL)
+	if err != nil {
+		fmt.Printf("error occurred %v", err)
+		return PageData{}
+	}
+
+	imgUrls, err := getImagesFromHTML(html, baseParsedURL)
+	if err != nil {
+		fmt.Printf("error occurred %v", err)
+		return PageData{}
+	}
+
+	return PageData{
+		URL:            baseParsedURL.Scheme + "://" + baseParsedURL.Host,
+		Heading:        heading,
+		FirstParagraph: firstParagraph,
+		OutgoingLinks:  outGoingLinks,
+		ImageURLs:      imgUrls,
+	}
 
 }
