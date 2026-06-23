@@ -11,6 +11,10 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+// func getHTML(rawURL string) (string, error) {
+
+// }
+
 func normalizeURL(rawUrl string) (string, error) {
 	normalizeRegex := regexp.MustCompile(`^(?:https?://)?(.*?)/?$`)
 
@@ -22,11 +26,6 @@ func normalizeURL(rawUrl string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// fmt.Printf("raw %v\n", p.Path)
-	// fmt.Printf("raw %v\n", p.Host)
-	// fmt.Printf("raw combined %v%v\n", p.Host, p.Path)
-
-	// cleaned := normalizeRegex.ReplaceAllString(rawUrl, "$1")
 
 	return p.Host + p.Path, nil
 }
@@ -158,11 +157,10 @@ func extractPageData(html, pageURL string) PageData {
 	}
 
 	return PageData{
-		URL:            baseParsedURL.Scheme + "://" + baseParsedURL.Host,
+		URL:            baseParsedURL.String(),
 		Heading:        heading,
 		FirstParagraph: firstParagraph,
 		OutgoingLinks:  outGoingLinks,
 		ImageURLs:      imgUrls,
 	}
-
 }
